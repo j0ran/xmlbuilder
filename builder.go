@@ -1,6 +1,7 @@
-package builder
+package xmlbuilder
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"strings"
@@ -136,22 +137,29 @@ func (b *Builder) doIndent() string {
 
 func (b *Builder) outputElement(close bool, newline bool) {
 	if b.buildingElement {
-		fmt.Fprintf(b.writer, "%s<%s", b.doIndent(), b.elements[len(b.elements)-1])
+		buf := &bytes.Buffer{}
+		buf.WriteString(b.doIndent())
+		buf.WriteRune('<')
+		buf.WriteString(b.elements[len(b.elements)-1])
 		for key, value := range b.attributes {
 			if key != "" && value != "" {
-				fmt.Fprintf(b.writer, ` %s="%s"`, key, htmlEscaper.Replace(value))
+				buf.WriteRune(' ')
+				buf.WriteString(key)
+				buf.WriteString(`="`)
+				buf.WriteString(htmlEscaper.Replace(value))
+				buf.WriteString(`"`)
 			}
 		}
 		if close {
 			b.elements = b.elements[:len(b.elements)-1]
-			fmt.Fprint(b.writer, " />")
+			buf.WriteString(" />")
 		} else {
-			fmt.Fprint(b.writer, ">")
+			buf.WriteRune('>')
 		}
 		if newline {
-			fmt.Fprintln(b.writer)
+			buf.WriteString("\n")
 		}
-
+		b.writer.Write(buf.Bytes())
 		b.buildingElement = false
 	}
 }
