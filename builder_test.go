@@ -3,6 +3,7 @@ package xmlbuilder
 import (
 	"bytes"
 	"encoding/xml"
+	"io/ioutil"
 	"reflect"
 	"testing"
 )
@@ -36,7 +37,7 @@ func tokenEquals(a, b xml.Token) bool {
 	return true
 }
 
-func assertXmlEquals(t *testing.T, a, b string) {
+func assertXMLEquals(t *testing.T, a, b string) {
 	xmla := xml.NewDecoder(bytes.NewBufferString(a))
 	xmlb := xml.NewDecoder(bytes.NewBufferString(b))
 
@@ -52,18 +53,23 @@ func assertXmlEquals(t *testing.T, a, b string) {
 	}
 }
 
+func readString(filename string) string {
+	buf, _ := ioutil.ReadFile(filename)
+	return string(buf)
+}
+
 func TestTag(t *testing.T) {
 	buf := &bytes.Buffer{}
 	xml := New(buf)
 	xml.Tag("Joran")
-	assertXmlEquals(t, "<Joran />\n", buf.String())
+	assertXMLEquals(t, "<Joran />\n", buf.String())
 }
 
 func TestAttributes(t *testing.T) {
 	buf := &bytes.Buffer{}
 	xml := New(buf)
 	xml.Tag("person", "name", "Joran", "age", 40)
-	assertXmlEquals(t, `<person name="Joran" age="40" />`+"\n", buf.String())
+	assertXMLEquals(t, `<person name="Joran" age="40" />`+"\n", buf.String())
 }
 
 func TestElementAttr(t *testing.T) {
@@ -73,5 +79,17 @@ func TestElementAttr(t *testing.T) {
 	xml.Attr("name", "Joran")
 	xml.Attr("age", 40)
 	xml.End()
-	assertXmlEquals(t, `<person name="Joran" age="40" />`+"\n", buf.String())
+	assertXMLEquals(t, `<person name="Joran" age="40" />`+"\n", buf.String())
+}
+
+func TestNestedElement(t *testing.T) {
+	buf := &bytes.Buffer{}
+	xml := New(buf)
+	xml.Element("person", "name", "Joran")
+	{
+		xml.Tag("tel", "nr", "1276536271")
+		xml.Element("tel", "nr", "1232123212").End()
+	}
+	xml.End()
+	assertXMLEquals(t, readString("test/nested_element.xml"), buf.String())
 }
