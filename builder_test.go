@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 )
@@ -154,4 +155,25 @@ func TestNotPretty(t *testing.T) {
 	}
 	xml.End()
 	assertXMLEquals(t, readString("test/not_pretty.xml"), buf.String())
+}
+
+func Example() {
+	xml := New(os.Stdout)
+	xml.Element("people")
+	{
+		xml.Element("person", "id", 1)
+		{
+			xml.Tag("name", "Joran")
+			xml.Tag("age", 40)
+		}
+		xml.End()
+	}
+	xml.End()
+	// Output:
+	// <people>
+	//   <person id="1">
+	//     <name>Joran</name>
+	//     <age>40</age>
+	//   </person>
+	// </people>
 }
