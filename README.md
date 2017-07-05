@@ -82,7 +82,7 @@ xml.Element("gml:Point",
 		"srsName", "http://www.opengis.net/def/crs/EPSG/0/4326",
 		"xmlns:gml", "http://www.opengis.net/gml")
 {
-	xml.Tag("gml:coordinates", 45.67, 88.56)
+	xml.Tag("gml:coordinates", "45.67, 88.56")
 }
 xml.End()
 ```
