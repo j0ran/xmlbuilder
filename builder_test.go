@@ -141,3 +141,17 @@ func TestInstructXML(t *testing.T) {
 	xml.End()
 	assertXMLEquals(t, readString("test/instructxml.xml"), buf.String())
 }
+
+func TestNotPretty(t *testing.T) {
+	buf := &bytes.Buffer{}
+	xml := New(buf).Pretty(false)
+	xml.Element("address")
+	{
+		xml.Attr("id", 12)
+		xml.Tag("street", "Some street")
+		xml.Tag("city", "Eindhoven")
+		xml.Tag("phone", "1298376142", "type", "mobile")
+	}
+	xml.End()
+	assertXMLEquals(t, readString("test/not_pretty.xml"), buf.String())
+}
