@@ -93,3 +93,51 @@ func TestNestedElement(t *testing.T) {
 	xml.End()
 	assertXMLEquals(t, readString("test/nested_element.xml"), buf.String())
 }
+
+func TestChars(t *testing.T) {
+	buf := &bytes.Buffer{}
+	xml := New(buf)
+	xml.Element("person", "name", "Joran").Chars("Hello!").End()
+	assertXMLEquals(t, readString("test/chars.xml"), buf.String())
+
+	buf = &bytes.Buffer{}
+	xml = New(buf)
+	xml.Element("person", "Hello!", "name", "Joran").End()
+	assertXMLEquals(t, readString("test/chars.xml"), buf.String())
+
+	buf = &bytes.Buffer{}
+	xml = New(buf)
+	xml.Tag("person", "Hello!", "name", "Joran")
+	assertXMLEquals(t, readString("test/chars_inline.xml"), buf.String())
+}
+
+func TestAttr(t *testing.T) {
+	buf := &bytes.Buffer{}
+	xml := New(buf)
+	xml.Element("person", "name", "Joran")
+	xml.Attr("age", 40)
+	xml.End()
+	assertXMLEquals(t, `<person name="Joran" age="40" />`+"\n", buf.String())
+
+	buf = &bytes.Buffer{}
+	xml = New(buf)
+	xml.Attr("age", 40)
+	xml.Element("person", "name", "Joran")
+	xml.End()
+	assertXMLEquals(t, `<person name="Joran" age="40" />`+"\n", buf.String())
+}
+
+func TestInstructXML(t *testing.T) {
+	buf := &bytes.Buffer{}
+	xml := New(buf)
+	xml.InstructXML()
+	xml.Element("address")
+	{
+		xml.Attr("id", 12)
+		xml.Tag("street", "Some street")
+		xml.Tag("city", "Eindhoven")
+		xml.Tag("phone", "1298376142", "type", "mobile")
+	}
+	xml.End()
+	assertXMLEquals(t, readString("test/instructxml.xml"), buf.String())
+}
