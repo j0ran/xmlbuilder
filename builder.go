@@ -150,10 +150,6 @@ func (b *Builder) Cdata(data interface{}) *Builder {
 	return b
 }
 
-func (b *Builder) Flush() {
-	b.outputElement(true, b.pretty)
-}
-
 func (b *Builder) doIndent() string {
 	if !b.pretty { // pretty print is off, no indent
 		return ""
