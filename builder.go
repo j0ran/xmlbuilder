@@ -21,6 +21,17 @@ var (
 	)
 )
 
+const (
+	DoctypeHTML5               = "html"
+	DoctypeHTML4Strict         = `HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd"`
+	DoctypeHTML4Transitional   = `HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd"`
+	DoctypeHTML4Frameset       = `HTML PUBLIC "-//W3C//DTD HTML 4.01 Frameset//EN" "http://www.w3.org/TR/html4/frameset.dtd"`
+	DoctypeXHTML10Strict       = `html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"`
+	DoctypeXHTML10Transitional = `html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"`
+	DoctypeXHTML10Frameset     = `html PUBLIC "-//W3C//DTD XHTML 1.0 Frameset//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd"`
+	DoctypeXHTML11             = `html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"`
+)
+
 type Builder struct {
 	writer          io.Writer
 	buildingElement bool
@@ -28,6 +39,7 @@ type Builder struct {
 	elements        []string
 	indentString    string
 	indent          string
+	offset          int // indent offset
 	inline          bool
 	pretty          bool
 }
@@ -116,6 +128,17 @@ func (b *Builder) InstructXML() *Builder {
 	return b.Instruct("xml", "version", "1.0", "encoding", "UTF-8")
 }
 
+func (b *Builder) Doctype(doctype string) *Builder {
+	fmt.Fprintf(b.writer, "<!DOCTYPE %s>\n", doctype)
+	return b
+}
+
+// Offset will add the delta value to the given ident offset
+func (b *Builder) Offset(delta int) *Builder {
+	b.offset += delta
+	return b
+}
+
 // Chars add characters to the document. It will also escape special characters.
 func (b *Builder) Chars(chars interface{}) *Builder {
 	b.outputElement(false, b.pretty && !b.inline)
@@ -154,7 +177,7 @@ func (b *Builder) doIndent() string {
 	if !b.pretty { // pretty print is off, no indent
 		return ""
 	}
-	indentValue := len(b.elements) - 1
+	indentValue := len(b.elements) + b.offset - 1
 	if len(b.indentString) != len(b.indent)*indentValue {
 		b.indentString = strings.Repeat(b.indent, indentValue)
 	}
