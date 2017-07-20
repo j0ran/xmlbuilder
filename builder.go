@@ -80,6 +80,25 @@ func (b *Builder) Element(element string, args ...interface{}) *Builder {
 	return b
 }
 
+// ElementNoEscape defines a new element in the xml document but doesn't escape the Chars
+func (b *Builder) ElementNoEscape(element string, args ...interface{}) *Builder {
+	if b.buildingElement {
+		b.outputElement(false, b.pretty)
+	}
+
+	b.buildingElement = true
+	b.elements = append(b.elements, element)
+	first := len(args) % 2
+	for i := first; i < len(args); i += 2 {
+		b.attributes[s(args[i+0])] = s(args[i+1])
+	}
+	if first != 0 {
+		b.CharsNoEscape(args[0])
+	}
+
+	return b
+}
+
 // Attr will add an attribute to the current element being build, or when not building
 // an element it will add attributes to the next element to be build.
 func (b *Builder) Attr(name string, value interface{}) *Builder {
@@ -110,6 +129,14 @@ func (b *Builder) End() *Builder {
 func (b *Builder) Tag(element string, args ...interface{}) *Builder {
 	b.inline = true
 	b.Element(element, args...).End()
+	b.inline = false
+	return b
+}
+
+// TagNoEscape inserts an inline element and directly closes it but doesn't escape the Chars.
+func (b *Builder) TagNoEscape(element string, args ...interface{}) *Builder {
+	b.inline = true
+	b.ElementNoEscape(element, args...).End()
 	b.inline = false
 	return b
 }
