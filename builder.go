@@ -42,10 +42,11 @@ type Builder struct {
 	offset          int // indent offset
 	inline          bool
 	pretty          bool
+	empty           bool // use empty elements
 }
 
-func s(v interface{}) string {
-	return fmt.Sprintf("%v", v)
+func s(v ...interface{}) string {
+	return fmt.Sprint(v...)
 }
 
 // New creates a new xml builder. By default pretty print is enabled and the identation is
@@ -56,6 +57,7 @@ func New(writer io.Writer) *Builder {
 	builder.attributes = make(map[string]string)
 	builder.indent = "  "
 	builder.pretty = true
+	builder.empty = true
 	return builder
 }
 
@@ -95,9 +97,9 @@ func (b *Builder) End() *Builder {
 			newline = ""
 		}
 		if b.inline {
-			fmt.Fprintf(b.writer, "</%s>%s", b.elements[len(b.elements)-1], newline)
+			fmt.Fprint(b.writer, "</", b.elements[len(b.elements)-1], ">", newline)
 		} else {
-			fmt.Fprintf(b.writer, "%s</%s>%s", b.doIndent(), b.elements[len(b.elements)-1], newline)
+			fmt.Fprint(b.writer, b.doIndent(), "</", b.elements[len(b.elements)-1], ">", newline)
 		}
 		b.elements = b.elements[:len(b.elements)-1]
 	}
@@ -114,9 +116,9 @@ func (b *Builder) Tag(element string, args ...interface{}) *Builder {
 
 // Instruct can be used to generate instruction tags.
 func (b *Builder) Instruct(name string, args ...interface{}) *Builder {
-	fmt.Fprintf(b.writer, "<?%s", name)
+	fmt.Fprint(b.writer, "<?", name)
 	for i := 0; i < len(args); i += 2 {
-		fmt.Fprintf(b.writer, ` %v="%s"`, args[i+0], attrEscaper.Replace(s(args[i+1])))
+		fmt.Fprint(b.writer, " ", args[i+0], `="`, attrEscaper.Replace(s(args[i+1])), `"`)
 	}
 	fmt.Fprintln(b.writer, "?>")
 	return b
@@ -129,7 +131,7 @@ func (b *Builder) InstructXML() *Builder {
 }
 
 func (b *Builder) Doctype(doctype string) *Builder {
-	fmt.Fprintf(b.writer, "<!DOCTYPE %s>\n", doctype)
+	fmt.Fprint(b.writer, "<!DOCTYPE ", doctype, ">\n")
 	return b
 }
 
@@ -140,36 +142,39 @@ func (b *Builder) Offset(delta int) *Builder {
 }
 
 // Chars add characters to the document. It will also escape special characters.
-func (b *Builder) Chars(chars interface{}) *Builder {
+func (b *Builder) Chars(chars ...interface{}) *Builder {
 	b.outputElement(false, b.pretty && !b.inline)
+	line := fmt.Sprint(chars...)
 	if b.inline || !b.pretty {
-		fmt.Fprint(b.writer, htmlEscaper.Replace(s(chars)))
+		fmt.Fprint(b.writer, htmlEscaper.Replace(line))
 	} else {
-		fmt.Fprintf(b.writer, "%s%s%s\n", b.doIndent(), b.indent, htmlEscaper.Replace(s(chars)))
+		fmt.Fprint(b.writer, b.doIndent(), b.indent, htmlEscaper.Replace(line), "\n")
 	}
 	return b
 }
 
 // CharsNoEscape adds characters to the document without escaping special characters like <, & and >.
-func (b *Builder) CharsNoEscape(chars interface{}) *Builder {
+func (b *Builder) CharsNoEscape(chars ...interface{}) *Builder {
 	b.outputElement(false, b.pretty && !b.inline)
+	line := fmt.Sprint(chars...)
 	if b.inline || !b.pretty {
-		fmt.Fprint(b.writer, s(chars))
+		fmt.Fprint(b.writer, line)
 	} else {
-		fmt.Fprintf(b.writer, "%s%s%s\n", b.doIndent(), b.indent, s(chars))
+		fmt.Fprint(b.writer, b.doIndent(), b.indent, line, "\n")
 	}
 	return b
 }
 
 // Cdata adds a cdata element to the output. The cdata endtoken "]]> should not appear in the input string.
 // This function does not check this.
-func (b *Builder) Cdata(data interface{}) *Builder {
+func (b *Builder) Cdata(data ...interface{}) *Builder {
 	b.outputElement(false, b.pretty)
+	line := fmt.Sprint(data...)
 	newline := "\n"
 	if !b.pretty {
 		newline = ""
 	}
-	fmt.Fprintf(b.writer, "%s%s<![CDATA[%s]]>%s", b.doIndent(), b.indent, s(data), newline)
+	fmt.Fprint(b.writer, b.doIndent(), b.indent, "<![CDATA[", line, "]]>", newline)
 	return b
 }
 
@@ -187,6 +192,14 @@ func (b *Builder) doIndent() string {
 // Indent is used to set the indent string
 func (b *Builder) Indent(indent string) *Builder {
 	b.indent = indent
+	return b
+}
+
+// Empty is used to determine if empty elements should be used
+// If true an empty element will be outputed as <br />, the default
+// If false an empty element will be outputed as <br>
+func (b *Builder) Empty(useEmpty bool) *Builder {
+	b.empty = useEmpty
 	return b
 }
 
@@ -208,7 +221,11 @@ func (b *Builder) outputElement(close bool, newline bool) {
 		b.attributes = make(map[string]string)
 		if close {
 			b.elements = b.elements[:len(b.elements)-1]
-			buf.WriteString(" />")
+			if b.empty {
+				buf.WriteString(" />")
+			} else {
+				buf.WriteRune('>')
+			}
 		} else {
 			buf.WriteRune('>')
 		}
