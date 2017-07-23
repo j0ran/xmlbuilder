@@ -264,6 +264,12 @@ func (b *Builder) outputElement(close bool, newline bool) {
 	}
 }
 
+// Flush will generate the current element that is being build.
+func (b *Builder) Flush() *Builder {
+	b.outputElement(false, b.pretty)
+	return b
+}
+
 // Pretty is used to turn on and off the pretty printing of xml
 func (b *Builder) Pretty(pretty bool) *Builder {
 	b.pretty = pretty
