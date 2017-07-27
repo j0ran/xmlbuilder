@@ -32,6 +32,14 @@ const (
 	DoctypeXHTML11             = `html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"`
 )
 
+type blank struct{}
+
+var Blank = blank{}
+
+func (b blank) String() string {
+	return ""
+}
+
 type Builder struct {
 	writer          io.Writer
 	buildingElement bool
@@ -71,7 +79,9 @@ func (b *Builder) Element(element string, args ...interface{}) *Builder {
 	b.elements = append(b.elements, element)
 	first := len(args) % 2
 	for i := first; i < len(args); i += 2 {
-		b.attributes[s(args[i+0])] = s(args[i+1])
+		if a, v := s(args[i+0]), s(args[i+1]); a != "" && (v != "" || args[i+1] == Blank) {
+			b.attributes[a] = s(v)
+		}
 	}
 	if first != 0 {
 		b.Chars(args[0])
@@ -90,7 +100,9 @@ func (b *Builder) ElementNoEscape(element string, args ...interface{}) *Builder 
 	b.elements = append(b.elements, element)
 	first := len(args) % 2
 	for i := first; i < len(args); i += 2 {
-		b.attributes[s(args[i+0])] = s(args[i+1])
+		if a, v := s(args[i+0]), s(args[i+1]); a != "" && (v != "" || args[i+1] == Blank) {
+			b.attributes[a] = s(v)
+		}
 	}
 	if first != 0 {
 		b.CharsNoEscape(args[0])
@@ -237,13 +249,11 @@ func (b *Builder) outputElement(close bool, newline bool) {
 		buf.WriteRune('<')
 		buf.WriteString(b.elements[len(b.elements)-1])
 		for key, value := range b.attributes {
-			if key != "" && value != "" {
-				buf.WriteRune(' ')
-				buf.WriteString(key)
-				buf.WriteString(`="`)
-				buf.WriteString(attrEscaper.Replace(value))
-				buf.WriteString(`"`)
-			}
+			buf.WriteRune(' ')
+			buf.WriteString(key)
+			buf.WriteString(`="`)
+			buf.WriteString(attrEscaper.Replace(value))
+			buf.WriteString(`"`)
 		}
 		b.attributes = make(map[string]string)
 		if close {
