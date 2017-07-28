@@ -145,7 +145,7 @@ func TestInstructXML(t *testing.T) {
 
 func TestNotPretty(t *testing.T) {
 	buf := &bytes.Buffer{}
-	xml := New(buf).Pretty(false)
+	xml := New(buf).Inline()
 	xml.Element("address")
 	{
 		xml.Attr("id", 12)

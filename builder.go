@@ -47,10 +47,9 @@ type Builder struct {
 	elements        []string
 	indentString    string
 	indent          string
-	offset          int // indent offset
-	inline          bool
-	pretty          bool
+	offset          int  // indent offset
 	empty           bool // use empty elements
+	inline          int
 }
 
 func s(v ...interface{}) string {
@@ -64,15 +63,33 @@ func New(writer io.Writer) *Builder {
 	builder.writer = writer
 	builder.attributes = make(map[string]string)
 	builder.indent = "  "
-	builder.pretty = true
 	builder.empty = true
 	return builder
+}
+
+func (b *Builder) Inline() *Builder {
+	if b.inline == 0 {
+		b.Flush()
+		b.offset++
+		fmt.Fprint(b.writer, b.doIndent())
+		b.offset--
+	}
+	b.inline++
+	return b
+}
+
+func (b *Builder) EndInline() *Builder {
+	b.inline--
+	if b.inline == 0 {
+		fmt.Fprintln(b.writer)
+	}
+	return b
 }
 
 // Element defines a new element in the xml document.
 func (b *Builder) Element(element string, args ...interface{}) *Builder {
 	if b.buildingElement {
-		b.outputElement(false, b.pretty)
+		b.outputElement(false)
 	}
 
 	b.buildingElement = true
@@ -93,7 +110,7 @@ func (b *Builder) Element(element string, args ...interface{}) *Builder {
 // ElementNoEscape defines a new element in the xml document but doesn't escape the Chars
 func (b *Builder) ElementNoEscape(element string, args ...interface{}) *Builder {
 	if b.buildingElement {
-		b.outputElement(false, b.pretty)
+		b.outputElement(false)
 	}
 
 	b.buildingElement = true
@@ -121,16 +138,12 @@ func (b *Builder) Attr(name string, value interface{}) *Builder {
 // End will add a close tag that matches the the previous Element call.
 func (b *Builder) End() *Builder {
 	if b.buildingElement {
-		b.outputElement(true, b.pretty)
+		b.outputElement(true)
 	} else {
-		newline := "\n"
-		if !b.pretty {
-			newline = ""
-		}
-		if b.inline {
-			fmt.Fprint(b.writer, "</", b.elements[len(b.elements)-1], ">", newline)
+		if b.inline > 0 {
+			fmt.Fprint(b.writer, "</", b.elements[len(b.elements)-1], ">")
 		} else {
-			fmt.Fprint(b.writer, b.doIndent(), "</", b.elements[len(b.elements)-1], ">", newline)
+			fmt.Fprint(b.writer, b.doIndent(), "</", b.elements[len(b.elements)-1], ">\n")
 		}
 		b.elements = b.elements[:len(b.elements)-1]
 	}
@@ -139,17 +152,17 @@ func (b *Builder) End() *Builder {
 
 // Tag inserts an inline element and directly closes it.
 func (b *Builder) Tag(element string, args ...interface{}) *Builder {
-	b.inline = true
+	b.Inline()
 	b.Element(element, args...).End()
-	b.inline = false
+	b.EndInline()
 	return b
 }
 
 // TagNoEscape inserts an inline element and directly closes it but doesn't escape the Chars.
 func (b *Builder) TagNoEscape(element string, args ...interface{}) *Builder {
-	b.inline = true
+	b.Inline()
 	b.ElementNoEscape(element, args...).End()
-	b.inline = false
+	b.EndInline()
 	return b
 }
 
@@ -182,9 +195,9 @@ func (b *Builder) Offset(delta int) *Builder {
 
 // Chars add characters to the document. It will also escape special characters.
 func (b *Builder) Chars(chars ...interface{}) *Builder {
-	b.outputElement(false, b.pretty && !b.inline)
+	b.outputElement(false)
 	line := fmt.Sprint(chars...)
-	if b.inline || !b.pretty {
+	if b.inline > 0 {
 		fmt.Fprint(b.writer, htmlEscaper.Replace(line))
 	} else {
 		fmt.Fprint(b.writer, b.doIndent(), b.indent, htmlEscaper.Replace(line), "\n")
@@ -194,9 +207,9 @@ func (b *Builder) Chars(chars ...interface{}) *Builder {
 
 // CharsNoEscape adds characters to the document without escaping special characters like <, & and >.
 func (b *Builder) CharsNoEscape(chars ...interface{}) *Builder {
-	b.outputElement(false, b.pretty && !b.inline)
+	b.outputElement(false)
 	line := fmt.Sprint(chars...)
-	if b.inline || !b.pretty {
+	if b.inline > 0 {
 		fmt.Fprint(b.writer, line)
 	} else {
 		fmt.Fprint(b.writer, b.doIndent(), b.indent, line, "\n")
@@ -207,20 +220,17 @@ func (b *Builder) CharsNoEscape(chars ...interface{}) *Builder {
 // Cdata adds a cdata element to the output. The cdata endtoken "]]> should not appear in the input string.
 // This function does not check this.
 func (b *Builder) Cdata(data ...interface{}) *Builder {
-	b.outputElement(false, b.pretty)
+	b.outputElement(false)
 	line := fmt.Sprint(data...)
-	newline := "\n"
-	if !b.pretty {
-		newline = ""
+	if b.inline > 0 {
+		fmt.Fprint(b.writer, "<![CDATA[", line, "]]>")
+	} else {
+		fmt.Fprint(b.writer, b.doIndent(), b.indent, "<![CDATA[", line, "]]>\n")
 	}
-	fmt.Fprint(b.writer, b.doIndent(), b.indent, "<![CDATA[", line, "]]>", newline)
 	return b
 }
 
 func (b *Builder) doIndent() string {
-	if !b.pretty { // pretty print is off, no indent
-		return ""
-	}
 	indentValue := len(b.elements) + b.offset - 1
 	if len(b.indentString) != len(b.indent)*indentValue {
 		b.indentString = strings.Repeat(b.indent, indentValue)
@@ -242,10 +252,12 @@ func (b *Builder) Empty(useEmpty bool) *Builder {
 	return b
 }
 
-func (b *Builder) outputElement(close bool, newline bool) {
+func (b *Builder) outputElement(close bool) {
 	if b.buildingElement {
 		buf := &bytes.Buffer{}
-		buf.WriteString(b.doIndent())
+		if b.inline == 0 {
+			buf.WriteString(b.doIndent())
+		}
 		buf.WriteRune('<')
 		buf.WriteString(b.elements[len(b.elements)-1])
 		for key, value := range b.attributes {
@@ -266,7 +278,7 @@ func (b *Builder) outputElement(close bool, newline bool) {
 		} else {
 			buf.WriteRune('>')
 		}
-		if newline {
+		if b.inline == 0 {
 			buf.WriteString("\n")
 		}
 		b.writer.Write(buf.Bytes())
@@ -276,12 +288,6 @@ func (b *Builder) outputElement(close bool, newline bool) {
 
 // Flush will generate the current element that is being build.
 func (b *Builder) Flush() *Builder {
-	b.outputElement(false, b.pretty)
-	return b
-}
-
-// Pretty is used to turn on and off the pretty printing of xml
-func (b *Builder) Pretty(pretty bool) *Builder {
-	b.pretty = pretty
+	b.outputElement(false)
 	return b
 }
