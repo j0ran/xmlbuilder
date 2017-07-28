@@ -177,3 +177,29 @@ func Example() {
 	//   </person>
 	// </people>
 }
+
+func ExampleDoctype() {
+	xml := New(os.Stdout)
+	xml.Doctype(DoctypeHTML5)
+	xml.Inline().Element("p").Chars("Hello").End().EndInline()
+	// Output:
+	// <!DOCTYPE html>
+	// <p>Hello</p>
+}
+
+func ExampleInline() {
+	xml := New(os.Stdout)
+	xml.Doctype(DoctypeHTML5)
+	xml.Element("ul")
+	{
+		xml.Inline().Element("li").Chars("Hello ").Tag("b", "there").End()
+		xml.Inline().Element("li").Chars("Test ").Tag("b", "this").End()
+	}
+	xml.End()
+	// Output
+	// <!DOCTYPE html>
+	// <ul>
+	//   <li>Hello <b>there</b></li>
+	//   <li>Test <b>this</b></li>
+	// </ul>
+}
