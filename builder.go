@@ -44,6 +44,7 @@ type Builder struct {
 	writer          io.Writer
 	buildingElement bool
 	attributes      map[string]string
+	attrnames       []string
 	elements        []string
 	indentString    string
 	indent          string
@@ -97,7 +98,7 @@ func (b *Builder) Element(element string, args ...interface{}) *Builder {
 	first := len(args) % 2
 	for i := first; i < len(args); i += 2 {
 		if a, v := s(args[i+0]), s(args[i+1]); a != "" && (v != "" || args[i+1] == Blank) {
-			b.attributes[a] = s(v)
+			b.Attr(a, v)
 		}
 	}
 	if first != 0 {
@@ -118,7 +119,7 @@ func (b *Builder) ElementNoEscape(element string, args ...interface{}) *Builder 
 	first := len(args) % 2
 	for i := first; i < len(args); i += 2 {
 		if a, v := s(args[i+0]), s(args[i+1]); a != "" && (v != "" || args[i+1] == Blank) {
-			b.attributes[a] = s(v)
+			b.Attr(a, v)
 		}
 	}
 	if first != 0 {
@@ -131,7 +132,11 @@ func (b *Builder) ElementNoEscape(element string, args ...interface{}) *Builder 
 // Attr will add an attribute to the current element being build, or when not building
 // an element it will add attributes to the next element to be build.
 func (b *Builder) Attr(name string, value interface{}) *Builder {
+	if _, found := b.attributes[name]; !found {
+		b.attrnames = append(b.attrnames, name)
+	}
 	b.attributes[name] = s(value)
+
 	return b
 }
 
@@ -260,7 +265,8 @@ func (b *Builder) outputElement(close bool) {
 		}
 		buf.WriteRune('<')
 		buf.WriteString(b.elements[len(b.elements)-1])
-		for key, value := range b.attributes {
+		for _, key := range b.attrnames {
+			value := b.attributes[key]
 			buf.WriteRune(' ')
 			buf.WriteString(key)
 			buf.WriteString(`="`)
@@ -268,6 +274,7 @@ func (b *Builder) outputElement(close bool) {
 			buf.WriteString(`"`)
 		}
 		b.attributes = make(map[string]string)
+		b.attrnames = b.attrnames[:0]
 		if close {
 			b.elements = b.elements[:len(b.elements)-1]
 			if b.empty {
