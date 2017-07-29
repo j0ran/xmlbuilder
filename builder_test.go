@@ -167,11 +167,11 @@ func ExampleInline() {
 	xml.Doctype(DoctypeHTML5)
 	xml.Element("ul")
 	{
-		xml.Inline().Element("li").Chars("Hello ").Tag("b", "there").End()
-		xml.Inline().Element("li").Chars("Test ").Tag("b", "this").End()
+		xml.Inline().Element("li").Chars("Hello ").Tag("b", "there").End().EndInline()
+		xml.Inline().Element("li").Chars("Test ").Tag("b", "this").End().EndInline()
 	}
 	xml.End()
-	// Output
+	// Output:
 	// <!DOCTYPE html>
 	// <ul>
 	//   <li>Hello <b>there</b></li>
